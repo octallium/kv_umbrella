@@ -1,18 +1,37 @@
 defmodule KVServer do
-  @moduledoc """
-  Documentation for `KVServer`.
-  """
+  require Logger
 
-  @doc """
-  Hello world.
+  # client -> request -> accept -> socket -> <||> -> client socket -> serve
 
-  ## Examples
+  def accept(port) do
+    {:ok, socket} =
+      :gen_tcp.listen(port, [:binary, packet: :line, active: false, reuseaddr: true])
 
-      iex> KVServer.hello()
-      :world
+    Logger.info("Accepting connections on port #{port}")
+    loop_acceptor(socket)
+  end
 
-  """
-  def hello do
-    :world
+  defp loop_acceptor(socket) do
+    {:ok, client} = :gen_tcp.accept(socket)
+    {:ok, pid} = Task.Supervisor.start_child(KVServer.TaskSupervisor, fn -> serve(client) end)
+    :ok = :gen_tcp.controlling_process(client, pid)
+    loop_acceptor(socket)
+  end
+
+  defp serve(socket) do
+    socket
+    |> read_lines()
+    |> write_lines(socket)
+
+    serve(socket)
+  end
+
+  defp read_lines(socket) do
+    {:ok, data} = :gen_tcp.recv(socket, 0)
+    data
+  end
+
+  defp write_lines(data, socket) do
+    :gen_tcp.send(socket, data)
   end
 end
