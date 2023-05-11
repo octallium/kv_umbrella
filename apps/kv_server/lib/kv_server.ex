@@ -19,19 +19,38 @@ defmodule KVServer do
   end
 
   defp serve(socket) do
-    socket
-    |> read_lines()
-    |> write_lines(socket)
+    msg =
+      with {:ok, data} <- read_lines(socket),
+           {:ok, command} <- KVServer.Command.parse(data),
+           do: KVServer.Command.run(command)
+
+    write_lines(socket, msg)
 
     serve(socket)
   end
 
   defp read_lines(socket) do
-    {:ok, data} = :gen_tcp.recv(socket, 0)
-    data
+    :gen_tcp.recv(socket, 0)
   end
 
-  defp write_lines(data, socket) do
-    :gen_tcp.send(socket, data)
+  defp write_lines(socket, {:ok, text}) do
+    :gen_tcp.send(socket, text)
+  end
+
+  defp write_lines(socket, {:error, :unknown_command}) do
+    :gen_tcp.send(socket, "UNKNOWN COMMAND\r\n")
+  end
+
+  defp write_lines(_socket, {:error, :closed}) do
+    exit(:shutdown)
+  end
+
+  defp write_lines(socket, {:error, :not_found}) do
+    :gen_tcp.send(socket, "NOT FOUND\r\n")
+  end
+
+  defp write_lines(socket, {:error, error}) do
+    :gen_tcp.send(socket, "ERROR\r\n")
+    exit(error)
   end
 end
