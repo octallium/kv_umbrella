@@ -3,11 +3,7 @@ defmodule KV.Router do
   The routing table.
   """
   def table do
-    # Replace computer-name with your local machine name
-    [
-      {?a..?m, :foo@anil},
-      {?n..?z, :bar@anil}
-    ]
+    Application.fetch_env!(:kv, :routing_table)
   end
 
   @doc """
